@@ -962,11 +962,12 @@ static void CL_PlayDemo_f( void ) {
 	FS_FCloseFile( hFile );
 	hFile = FS_INVALID_HANDLE;
 
+	CL_Disconnect( qtrue );
+
 	// make sure a local server is killed
 	// 2 means don't force disconnect of local client
 	Cvar_Set( "sv_killserver", "2" );
-
-	CL_Disconnect( qtrue );
+	SV_Frame( 0 );
 
 	// clc.demofile will be closed during CL_Disconnect so reopen it
 	if ( FS_FOpenFileRead( name, &clc.demofile, qtrue ) == -1 )
@@ -1038,34 +1039,47 @@ static void CL_NextDemo( void ) {
 /*
 =====================
 CL_ShutdownVMs
+
+Called by CL_Shutdown(), Cl_ShutdownAll(), vid_restart code,
+
+right before CL_ShutdownRef() so it is safe to clean hunk
 =====================
 */
 static void CL_ShutdownVMs( void )
 {
+	// clear and mute all sounds until next registration
+	S_DisableSounds();
+
 	CL_ShutdownCGame();
 	CL_ShutdownUI();
+
+	// there is no valid gamestate to record at this stage but do this
+	// after CGAME/UI shutdown to let it finish own auto recording/renaming stuff
+	if ( clc.demorecording )
+		CL_StopRecord_f();
+
+	// no cine conusmers at this stage
+	CIN_CloseAllVideos();
+
+	// clear all the client data on the hunk
+	Hunk_Clear( h_low );
 }
 
 
 /*
 =====================
+Called by Com_GameRestart, CL_FlushMemory and SV_SpawnServer
+
 CL_ShutdownAll
 =====================
 */
 void CL_ShutdownAll( void ) {
 	aviRecordingState_t cl_recordState = CL_VideoRecording();
 	// stop recording video on map change
-	if ( cl_recordState == AVIDEMO_VIDEO )
+	/*if ( cl_recordState == AVIDEMO_VIDEO )
 		CL_CloseAVI( qfalse );
 	else //if ( cl_recordState == AVIDEMO_CVAR )
-		Cvar_ForceReset( "cl_avidemo" );
-
-	// stop recording demo on map change
-	if ( clc.demorecording )
-		CL_StopRecord_f();
-
-	// clear and mute all sounds until next registration
-	S_DisableSounds();
+		Cvar_ForceReset( "cl_avidemo" );*/
 
 #ifdef USE_CURL
 	// download subsystem
@@ -1093,29 +1107,9 @@ void CL_ShutdownAll( void ) {
 
 /*
 =================
-CL_ClearMemory
-=================
-*/
-void CL_ClearMemory( void ) {
-	// if not running a server clear the whole hunk
-	if ( !com_sv_running->integer ) {
-		// clear the whole hunk
-		Hunk_Clear();
-		// clear collision map data
-		CM_ClearMap();
-	} else {
-		// clear all the client data on the hunk
-		Hunk_ClearToMark();
-	}
-}
-
-
-/*
-=================
 CL_FlushMemory
 
-Called by CL_MapLoading, CL_Connect_f, CL_PlayDemo_f, and CL_ParseGamestate the only
-ways a client gets into a game
+Called by CL_Disconnect_f, CL_DownloadsComplete
 Also called by Com_Error
 =================
 */
@@ -1123,8 +1117,6 @@ void CL_FlushMemory( void ) {
 
 	// shutdown all the client stuff
 	CL_ShutdownAll();
-
-	CL_ClearMemory();
 
 	CL_StartHunkUsers();
 }
@@ -1357,11 +1349,6 @@ qboolean CL_Disconnect( qboolean showMainMenu ) {
 
 	cl_disconnecting = qtrue;
 
-	// Stop demo recording
-	if ( clc.demorecording ) {
-		CL_StopRecord_f();
-	}
-
 	// Stop demo playback
 	if ( clc.demofile != FS_INVALID_HANDLE ) {
 		FS_FCloseFile( clc.demofile );
@@ -1397,6 +1384,11 @@ qboolean CL_Disconnect( qboolean showMainMenu ) {
 		CL_ShutdownCGame();
 	}
 
+	// Stop demo recording
+	if ( clc.demorecording ) {
+		CL_StopRecord_f();
+	}
+
 	SCR_StopCinematic();
 	S_StopAllSounds();
 	Key_ClearStates();
@@ -1410,7 +1402,7 @@ qboolean CL_Disconnect( qboolean showMainMenu ) {
 	//FS_PureServerSetLoadedPaks( "", "" );
 	//FS_PureServerSetReferencedPaks( "", "" );
 
-	FS_ClearPakReferences( FS_GENERAL_REF | FS_UI_REF | FS_CGAME_REF );
+	FS_ClearPakReferences( FS_ALL_REF );
 
 	if ( CL_GameSwitch() ) {
 		// keep current gamestate and connection
@@ -1647,6 +1639,17 @@ static void CL_Connect_f( void ) {
 	}
 
 	Q_strncpyz( buffer, server, sizeof( buffer ) );
+
+	len = strlen( buffer );
+	if ( len <= 0 ) {
+		return;
+	}
+
+	// some programs may add ending slash
+	if ( buffer[len - 1] == '/' ) {
+		buffer[len - 1] = '\0';
+	}
+
 	server = buffer;
 
 	// skip leading "et:/" in connection string
@@ -1659,17 +1662,7 @@ static void CL_Connect_f( void ) {
 		server++;
 	}
 
-	len = strlen( server );
-	if ( len <= 0 ) {
-		return;
-	}
-
-	// some programs may add ending slash
-	if ( buffer[len-1] == '/' ) {
-		buffer[len-1] = '\0';
-	}
-
-	if ( !*server ) {
+	if ( *server == '\0' ) {
 		return;
 	}
 
@@ -1878,12 +1871,6 @@ static void CL_Vid_Restart( refShutdownCode_t shutdownCode ) {
 	else //if ( cl_recordState == AVIDEMO_CVAR )
 		Cvar_ForceReset( "cl_avidemo" );
 
-	if ( clc.demorecording )
-		CL_StopRecord_f();
-
-	// clear and mute all sounds until next registration
-	S_DisableSounds();
-
 	// shutdown VMs
 	CL_ShutdownVMs();
 
@@ -1904,8 +1891,6 @@ static void CL_Vid_Restart( refShutdownCode_t shutdownCode ) {
 
 	// unpause so the cgame definitely gets a snapshot and renders a frame
 	Cvar_Set( "cl_paused", "0" );
-
-	CL_ClearMemory();
 
 	// startup all the client stuff
 	CL_StartHunkUsers();
@@ -3358,7 +3343,7 @@ void CL_Frame( int msec, int realMsec ) {
 			// Replace the ":" in the address as it is not a valid
 			// file name character
 			p = strchr( serverName, ':' );
-			if( p ) {
+			if ( p ) {
 				*p = '.';
 			}
 
@@ -3368,9 +3353,9 @@ void CL_Frame( int msec, int realMsec ) {
 			Cbuf_ExecuteText( EXEC_NOW,
 					va( "record %s-%s-%s", nowString, serverName, mapName ) );
 		}
-		else if( cls.state != CA_ACTIVE && clc.demorecording ) {
+		else if ( cls.state != CA_ACTIVE && clc.demorecording ) {
 			// Recording, but not CA_ACTIVE, so stop recording
-			CL_StopRecord_f( );
+			CL_StopRecord_f();
 		}
 	}
 
@@ -3463,8 +3448,8 @@ static Q_PRINTF_FUNC(2, 3) void QDECL CL_RefPrintf( printParm_t level, const cha
 	switch ( level ) {
 		default: Com_Printf( "%s", msg ); break;
 		case PRINT_DEVELOPER: Com_DPrintf( "%s", msg ); break;
-		case PRINT_WARNING: Com_Printf( S_COLOR_YELLOW "%s", msg ); break;
-		case PRINT_ERROR: Com_Printf( S_COLOR_RED "%s", msg ); break;
+		case PRINT_WARNING: Com_Printf( S_COLOR_WARNING "%s", msg ); break;
+		case PRINT_ERROR: Com_Printf( S_COLOR_ERROR "%s", msg ); break;
 	}
 }
 
@@ -3483,7 +3468,7 @@ static void CL_ShutdownRef( refShutdownCode_t code ) {
 #endif
 
 	// clear and mute all sounds until next registration
-	// S_DisableSounds();
+	// S_DisableSounds(); // -> already done in CL_ShutdownVMs()
 
 	if ( code >= REF_DESTROY_WINDOW ) { // +REF_UNLOAD_DLL
 		// shutdown sound system before renderer
@@ -4598,9 +4583,6 @@ void CL_Shutdown( const char *finalmsg, qboolean quit ) {
 	noGameRestart = quit;
 	cl_shutdownQuit = quit;
 	CL_Disconnect( qfalse );
-
-	// clear and mute all sounds until next registration
-	S_DisableSounds();
 
 	CL_ShutdownVMs();
 

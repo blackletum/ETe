@@ -329,7 +329,7 @@ typedef struct {
 
 } serverStatic_t;
 
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 #define SERVER_MAXBANS	1024
 // Structure for managing bans
 typedef struct
@@ -414,7 +414,7 @@ extern cvar_t *sv_cheats;
 //fretn
 extern cvar_t *sv_fullmsg;
 
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 extern	cvar_t	*sv_banFile;
 extern	serverBan_t serverBans[SERVER_MAXBANS];
 extern	int serverBansCount;

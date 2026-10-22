@@ -97,7 +97,7 @@ cvar_t  *sv_filterCommands;
 
 cvar_t	*sv_paksOverflowMode;
 
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 cvar_t	*sv_banFile;
 serverBan_t serverBans[SERVER_MAXBANS];
 int serverBansCount = 0;

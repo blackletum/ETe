@@ -131,7 +131,7 @@ void SV_GetChallenge( const netadr_t *from ) {
 		return;
 	}
 
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 	// Check whether this client is banned.
 	if(SV_IsBanned(from, qfalse))
 	{
@@ -189,7 +189,7 @@ SV_IsBanned
 Check whether a certain address is banned
 ==================
 */
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 
 static qboolean SV_IsBanned( const netadr_t *from, qboolean isexception )
 {
@@ -514,7 +514,7 @@ void SV_DirectConnect( const netadr_t *from ) {
 
 	Com_DPrintf( "SVC_DirectConnect()\n" );
 
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 	// Check whether this client is banned.
 	if(SV_IsBanned(from, qfalse))
 	{

@@ -455,7 +455,7 @@ static void SV_MapRestart_f( void ) {
 }
 
 
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 /*
 ==================
 SV_RehashBans_f
@@ -967,7 +967,7 @@ static void SV_ExceptDel_f(void)
 	SV_DelBanFromList(qtrue);
 }
 
-#endif // USE_BANS
+#endif // USE_IOQ3_BANS
 
 
 /*
@@ -1478,7 +1478,7 @@ static const cmdListItem_t sv_cmds[] = {
 	{ "map", SV_Map_f, SV_CompleteMapName },
 	{ "sectorlist", SV_SectorList_f, NULL },
 	{ "status", SV_Status_f, NULL },
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 	{ "banaddr", SV_BanAddr_f, NULL },
 	{ "bandel", SV_BanDel_f, NULL },
 	{ "exceptaddr", SV_ExceptAddr_f, NULL },

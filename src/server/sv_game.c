@@ -796,6 +796,8 @@ void SV_ShutdownGameProgs( void ) {
 	gvm = NULL;
 	Cmd_UnregisterModule( MODULE_SGAME );
 	FS_VM_CloseFiles( H_QAGAME );
+
+	CM_ClearMap();
 }
 
 

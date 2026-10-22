@@ -586,8 +586,10 @@ void SV_SpawnServer( const char *mapname ) {
 	CL_ShutdownAll();
 #endif
 
-	// clear the whole hunk because we're (re)loading the server
-	Hunk_Clear();
+	// clear server-side hunk
+	Hunk_Clear( h_high );
+
+	FS_ResetLoadStack();
 
 	// clear collision map data
 	CM_ClearMap();
@@ -596,9 +598,6 @@ void SV_SpawnServer( const char *mapname ) {
 	Cvar_CheckRange( com_timescale, "0.001", "100", CV_FLOAT );
 
 	Hunk_AllocPreference( h_high );
-
-	// Restart renderer?
-	// CL_StartHunkUsers( );
 
 	// init client structures and svs.numSnapshotEntities
 	if ( !Cvar_VariableIntegerValue( "sv_running" ) ) {
@@ -912,6 +911,8 @@ void SV_SpawnServer( const char *mapname ) {
 	}
 #endif
 
+	Hunk_SetMark( h_high );
+
 	Cvar_Set( "sv_serverRestarting", "0" );
 
 	Com_Printf ("-----------------------------------\n");
@@ -1079,7 +1080,7 @@ void SV_Init( void )
 	// ET://someserver.com
 	sv_fullmsg = Cvar_Get( "sv_fullmsg", "Server is full.", CVAR_ARCHIVE );
 
-#ifdef USE_BANS
+#ifdef USE_IOQ3_BANS
 	sv_banFile = Cvar_Get("sv_banFile", "serverbans.dat", CVAR_ARCHIVE);
 	Cvar_SetDescription( sv_banFile, "Name of the file that is used for storing the server bans" );
 #endif
@@ -1109,7 +1110,7 @@ void SV_Init( void )
 		" 1 - refuse to set sv_paks and sv_pakNames (Quake3e+ETe style).\n"
 		" 2 - set sv_paks and sv_pakNames to referenced if won't still overflow (ET:Legacy style)" );
 
-#ifdef USE_BANS	
+#ifdef USE_IOQ3_BANS	
 	// Load saved bans
 	Cbuf_AddText("rehashbans\n");
 #endif
@@ -1229,6 +1230,8 @@ void SV_Shutdown( const char *finalmsg ) {
 	if ( sv_killserver->integer != 2 )
 		CL_Disconnect( qfalse );
 #endif
+
+	Hunk_Clear( h_high );
 
 	// clean some server cvars
 	Cvar_Set( "sv_referencedPaks", "" );

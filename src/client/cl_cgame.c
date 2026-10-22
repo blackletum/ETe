@@ -550,6 +550,8 @@ static void CL_CM_LoadMap( const char *mapname ) {
 	int		checksum;
 	void	*buf;
 
+	Hunk_AllocPreference( h_low );
+
 	// DHM - Nerve :: If we are not running the server, then set expected usage here
 	if ( !com_sv_running->integer )
 		CL_SetExpectedHunkUsage( mapname );
@@ -588,6 +590,10 @@ void CL_ShutdownCGame( void ) {
 	cgvm = NULL;
 	Cmd_UnregisterModule( MODULE_CGAME );
 	FS_VM_CloseFiles( H_CGAME );
+
+	if ( !com_sv_running->integer ) {
+		CM_ClearMap();
+	}
 }
 
 
